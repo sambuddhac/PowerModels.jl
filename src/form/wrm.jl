@@ -467,3 +467,113 @@ function _problem_size(groups)
     A = _prim(_overlap_graph(groups))
     return sum(nvars.(Int64.(nonzeros(A)))) + sum(nvars.(length.(groups)))
 end
+
+
+
+function constraint_model_voltage(pm::KKYSOCWRPowerModel, n::Int, c::Int)
+    _check_missing_keys(var(pm, n, c), [:voltage_product_groups], typeof(pm))
+
+    pair_matrix(group) = [(i, j) for i in group, j in group]
+
+    decomp = pm.ext[:SDconstraintDecomposition]
+    groups = decomp.decomp
+    voltage_product_groups = var(pm, n, c)[:voltage_product_groups]
+
+    # semidefinite constraint for each group in clique grouping
+    for (gidx, voltage_product_group) in enumerate(voltage_product_groups)
+        _check_missing_keys(voltage_product_group, [:WR,:WI], typeof(pm))
+
+        group = groups[gidx]
+        ng = length(group)
+        WR = voltage_product_group[:WR]
+        WI = voltage_product_group[:WI]
+
+        # Lower-dimensional SOC constraint equiv. to SDP for 2-vertex
+        # clique
+        if ng == 2
+            wr_ii = WR[1, 1]
+            wr_jj = WR[2, 2]
+            wr_ij = WR[1, 2]
+            wi_ij = WI[1, 2]
+            wi_ji = WI[2, 1]
+
+            # standard SOC form (Mosek doesn't like rotated form)
+            JuMP.@constraint(pm.model, (wr_ii + wr_jj)^2 >= (wr_ii - wr_jj)^2 + (2*wr_ij)^2 + (2*wi_ij)^2)
+            JuMP.@constraint(pm.model, wi_ij == -wi_ji)
+        else
+            # JuMP.@constraint(pm.model, [WR WI; -WI WR] in JuMP.PSDCone())
+            sdp_3x3_to_soc_kim_kojima(pm.model, WR, WI)
+        end
+    end
+
+    # linking constraints
+    tree = _prim(_overlap_graph(groups))
+    overlapping_pairs = [Tuple(CartesianIndices(tree)[i]) for i in (LinearIndices(tree))[findall(x->x!=0, tree)]]
+    for (i, j) in overlapping_pairs
+        gi, gj = groups[i], groups[j]
+        var_i, var_j = voltage_product_groups[i], voltage_product_groups[j]
+
+        Gi, Gj = pair_matrix(gi), pair_matrix(gj)
+        overlap_i, overlap_j = _overlap_indices(Gi, Gj)
+        indices = zip(overlap_i, overlap_j)
+        for (idx_i, idx_j) in indices
+            JuMP.@constraint(pm.model, var_i[:WR][idx_i] == var_j[:WR][idx_j])
+            JuMP.@constraint(pm.model, var_i[:WI][idx_i] == var_j[:WI][idx_j])
+        end
+    end
+end
+
+
+
+function constraint_model_voltage(pm::KKYSOCWRConicPowerModel, n::Int, c::Int)
+    _check_missing_keys(var(pm, n, c), [:voltage_product_groups], typeof(pm))
+
+    pair_matrix(group) = [(i, j) for i in group, j in group]
+
+    decomp = pm.ext[:SDconstraintDecomposition]
+    groups = decomp.decomp
+    voltage_product_groups = var(pm, n, c)[:voltage_product_groups]
+
+    # semidefinite constraint for each group in clique grouping
+    for (gidx, voltage_product_group) in enumerate(voltage_product_groups)
+        _check_missing_keys(voltage_product_group, [:WR,:WI], typeof(pm))
+
+        group = groups[gidx]
+        ng = length(group)
+        WR = voltage_product_group[:WR]
+        WI = voltage_product_group[:WI]
+
+        # Lower-dimensional SOC constraint equiv. to SDP for 2-vertex
+        # clique
+        if ng == 2
+            wr_ii = WR[1, 1]
+            wr_jj = WR[2, 2]
+            wr_ij = WR[1, 2]
+            wi_ij = WI[1, 2]
+            wi_ji = WI[2, 1]
+
+            # standard SOC form (Mosek doesn't like rotated form)
+            JuMP.@constraint(pm.model, [(wr_ii + wr_jj), (wr_ii - wr_jj), 2*wr_ij, 2*wi_ij] in JuMP.SecondOrderCone())
+            JuMP.@constraint(pm.model, wi_ij == -wi_ji)
+        else
+            # JuMP.@constraint(pm.model, [WR WI; -WI WR] in JuMP.PSDCone())
+            sdp_3x3_to_soc_kim_kojima_conic(pm.model, WR, WI)
+        end
+    end
+
+    # linking constraints
+    tree = _prim(_overlap_graph(groups))
+    overlapping_pairs = [Tuple(CartesianIndices(tree)[i]) for i in (LinearIndices(tree))[findall(x->x!=0, tree)]]
+    for (i, j) in overlapping_pairs
+        gi, gj = groups[i], groups[j]
+        var_i, var_j = voltage_product_groups[i], voltage_product_groups[j]
+
+        Gi, Gj = pair_matrix(gi), pair_matrix(gj)
+        overlap_i, overlap_j = _overlap_indices(Gi, Gj)
+        indices = zip(overlap_i, overlap_j)
+        for (idx_i, idx_j) in indices
+            JuMP.@constraint(pm.model, var_i[:WR][idx_i] == var_j[:WR][idx_j])
+            JuMP.@constraint(pm.model, var_i[:WI][idx_i] == var_j[:WI][idx_j])
+        end
+    end
+end

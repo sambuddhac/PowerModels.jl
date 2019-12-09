@@ -1,7 +1,7 @@
 module PowerModels
 
 import LinearAlgebra, SparseArrays
-
+import Combinatorics
 import InfrastructureModels
 import JSON
 import JuMP

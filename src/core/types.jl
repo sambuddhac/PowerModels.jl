@@ -158,7 +158,7 @@ mutable struct DCPPowerModel <: AbstractDCPModel @pm_fields end
 abstract type AbstractDCMPPModel <: AbstractDCPModel end
 
 """
-Linearized 'DC' power flow model with polar voltage variables. 
+Linearized 'DC' power flow model with polar voltage variables.
 
 Similar to the DCPPowerModel with the following changes:
 
@@ -259,6 +259,7 @@ The implementation casts this as a convex quadratically constrained problem.
 ```
 """
 mutable struct SOCWRPowerModel <: AbstractSOCWRModel @pm_fields end
+
 
 
 ""
@@ -463,6 +464,58 @@ Original application to OPF by:
 """
 mutable struct SparseSDPWRMPowerModel <: AbstractSparseSDPWRMModel @pm_fields end
 
+"""
+Second-order cone relaxation of bus injection model of AC OPF.
+
+The implementation casts this as a convex quadratically constrained problem.
+```
+@article{BAI2008383,
+  author = "Xiaoqing Bai and Hua Wei and Katsuki Fujisawa and Yong Wang",
+  title = "Semidefinite programming for optimal power flow problems",
+  journal = "International Journal of Electrical Power & Energy Systems",
+  volume = "30",
+  number = "6",
+  pages = "383 - 392",
+  year = "2008",
+  issn = "0142-0615",
+  doi = "https://doi.org/10.1016/j.ijepes.2007.12.003",
+  url = "http://www.sciencedirect.com/science/article/pii/S0142061507001378",
+}
+```
+First paper to use "W" variables in the BIM of AC OPF:
+```
+@INPROCEEDINGS{6345272,
+  author={S. Sojoudi and J. Lavaei},
+  title={Physics of power networks makes hard optimization problems easy to solve},
+  booktitle={2012 IEEE Power and Energy Society General Meeting},
+  year={2012},
+  month={July},
+  pages={1-8},
+  doi={10.1109/PESGM.2012.6345272},
+  ISSN={1932-5517}
+}
+```
+Finally we apply the type-1 relaxation to the SDP form
+```
+@article{Kim2003,
+author = {Kim, S and Kojima, M and Yamashita, M},
+doi = {10.1080/1055678031000148696},
+file = {:Users/get050/Documents/Mendeley Desktop/Kim, Kojima, Yamashita - 2003 - Second order cone programming relaxation of a positive semidefinite constraint.pdf:pdf},
+issn = {1055-6788},
+journal = {Optimization Methods Software},
+keywords = {convex relaxation,nonconvex program,program,quadratic program,second order cone program,semidefinite},
+number = {5},
+pages = {535--541},
+title = {{Second order cone programming relaxation of a positive semidefinite constraint}},
+volume = {18},
+year = {2003}
+}
+
+```
+"""
+mutable struct KKYSOCWRPowerModel <: AbstractSparseSDPWRMModel @pm_fields end
+
+mutable struct KKYSOCWRConicPowerModel <: AbstractSparseSDPWRMModel @pm_fields end
 
 
 ##### Union Types #####

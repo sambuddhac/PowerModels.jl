@@ -142,4 +142,120 @@ function relaxation_cos_on_off(m, x, y, z, M_x)
     JuMP.@constraint(m, y <= z - (1-cos(max_ad))/(max_ad^2)*(x^2) + (1-z)*((1-cos(max_ad))/(max_ad^2)*(M_x^2)))
 end
 
+"""
+Kim Kojima Yamashita type-1 relaxation in conic form
+```
+(c^H.a)^H (c^H.a) <= alpha *((c.c^h)*A)
+```
+"""
+function sdp_to_soc_kim_kojima_conic(m, Ar, Ai, ar, ai, alphar, cr, ci; tol=1e-8)
+    @assert size(Ar) == size(Ai)
+    @assert size(ar) == size(ai)
 
+    @assert size(Ar)[1] == size(ar)[1]
+
+    cr[abs.(cr).<=tol] .=0
+    ci[abs.(ci).<=tol] .=0
+
+    c = cr+im*ci
+    C = c*c'
+    Cr = real(C)
+    Ci = imag(C)
+    Cr[abs.(Cr).<=tol] .=0
+    Ci[abs.(Ci).<=tol] .=0
+
+    @assert size(Cr) == size(Ar)
+
+    rhs_1 = alphar
+    rhs_2 = sum(Cr.*Ar) + sum(Ci.*Ai)
+
+    lhs_re = cr'* ar + ci'* ai
+    lhs_im = cr'* ai - ci'* ar
+
+    JuMP.@constraint(m, rhs_2 >= 0)
+    JuMP.@constraint(m, [rhs_1+rhs_2;
+                         rhs_1-rhs_2;
+                         2*lhs_re;
+                         2*lhs_im] in JuMP.SecondOrderCone())
+
+end
+
+
+"""
+Kim Kojima Yamashita type-1 relaxation in conic form
+```
+(c^H.a)^H (c^H.a) <= alpha *((c.c^h)*A)
+```
+"""
+function sdp_to_soc_kim_kojima(m, Ar, Ai, ar, ai, alphar, cr, ci; tol=1e-8)
+    @assert size(Ar) == size(Ai)
+    @assert size(ar) == size(ai)
+
+    @assert size(Ar)[1] == size(ar)[1]
+
+    cr[abs.(cr).<=tol] .=0
+    ci[abs.(ci).<=tol] .=0
+
+    c = cr+im*ci
+    C = c*c'
+    Cr = real(C)
+    Ci = imag(C)
+    Cr[abs.(Cr).<=tol] .=0
+    Ci[abs.(Ci).<=tol] .=0
+
+    @assert size(Cr) == size(Ar)
+
+    rhs_1 = alphar
+    rhs_2 = sum(Cr.*Ar) + sum(Ci.*Ai)
+
+    lhs_re = cr'* ar + ci'* ai
+    lhs_im = cr'* ai - ci'* ar
+
+    JuMP.@constraint(m, rhs_2 >= 0)
+    JuMP.@constraint(m, (rhs_1+rhs_2)^2 >=
+                         (rhs_1-rhs_2)^2 + (2*lhs_re)^2 + (2*lhs_im)^2)
+
+end
+function sdp_3x3_to_soc_kim_kojima_conic(m, Mr, Mi)
+    @assert size(Mr) == size(Mi)
+    dim = size(Mr,1)
+
+    cr = [1, 1]
+    ci = [0, 0]
+    for i in 1:dim
+        dims = [delete!(Set(1:3), i)...]
+        combs = [Combinatorics.combinations(dims,2)...]
+        @show combs, i
+        for comb in combs
+            @show comb
+            Ar = Mr[comb, comb]
+            Ai = Mi[comb, comb]
+            ar = Mr[comb, i]
+            ai = Mi[comb, i]
+            alphar = Mr[i, i]
+            sdp_to_soc_kim_kojima_conic(m, Ar, Ai, ar, ai, alphar, cr, ci)
+        end
+    end
+end
+
+function sdp_3x3_to_soc_kim_kojima(m, Mr, Mi)
+    @assert size(Mr) == size(Mi)
+    dim = size(Mr,1)
+
+    cr = [1, 1]
+    ci = [0, 0]
+    for i in 1:dim
+        dims = [delete!(Set(1:3), i)...]
+        combs = [Combinatorics.combinations(dims,2)...]
+        @show combs, i
+        for comb in combs
+            @show comb
+            Ar = Mr[comb, comb]
+            Ai = Mi[comb, comb]
+            ar = Mr[comb, i]
+            ai = Mi[comb, i]
+            alphar = Mr[i, i]
+            sdp_to_soc_kim_kojima(m, Ar, Ai, ar, ai, alphar, cr, ci)
+        end
+    end
+end
